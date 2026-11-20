@@ -82,13 +82,49 @@ function CustomerOverview({ onToken }: { onToken: () => void }) {
   return <><div className="customer-brand-banner"><img src="/salon-banner.png" alt="Demoni Aiyo Salon — Your Style, Our Craft" /></div><section className="customer-welcome"><div><span className="eyebrow"><span className="live-dot" /> YOUR NEIGHBORHOOD BARBERSHOP</span><h2>Your style, your time.</h2><p>Skip the endless waiting. Join the queue from anywhere.</p><button className="primary-button" onClick={onToken}>Get your token <ChevronRight size={16} /></button></div><img src="/salon-crest.png" alt="Demoni Aiyo Salon illustrated crest" /></section><div className="customer-quick-stats"><div><span>People waiting</span><b>3</b><small>Across 3 barbers</small></div><div><span>Estimated wait</span><b>24 <em>min</em></b><small>Sample preview</small></div><div><span>Today&apos;s hours</span><b>9–8</b><small>Open until 8:00 PM</small></div></div><div className="customer-section-heading"><div><span className="eyebrow">THE GOOD STUFF</span><h3>Find your fresh</h3></div><button className="text-action">All services <ChevronRight size={15} /></button></div><div className="customer-service-grid">{[{ title: 'Hair cutting', description: 'A clean cut, made yours.', price: 'from $32', icon: Scissors }, { title: 'Hair styling', description: 'Make a statement.', price: 'from $28', icon: Sparkles }, { title: 'Hair texture', description: 'Bring out your natural.', price: 'from $45', icon: Activity }, { title: 'Hair treatment', description: 'A little care goes far.', price: 'from $40', icon: ShieldCheck }].map(({ title, description, price, icon: Icon }) => <button className="customer-service" key={title} onClick={onToken}><span className="service-icon"><Icon size={19} /></span><strong>{title}</strong><small>{description}</small><span className="service-price">{price} <ChevronRight size={13} /></span></button>)}</div><div className="customer-live-queue"><div><span className="eyebrow">SAMPLE QUEUE</span><h3>Good things take a little time.</h3><p>3 guests ahead · around 24 minutes</p></div><button className="outline-button" onClick={onToken}>Track queue <ArrowUpRight size={15} /></button></div></>
 }
 
-function CustomerQueueView({ onToken }: { onToken: () => void }) {
-  return <>
-    <div className="view-intro"><div><span className="eyebrow">QUEUE SNAPSHOT</span><h2>Live queue</h2><p>See the current wait before you head over.</p></div><button className="primary-button" onClick={onToken}><Plus size={16} /> Get a token</button></div>
-    <div className="queue-summary-grid"><div><span>Guests ahead</span><b>3</b><small>Sample count</small></div><div><span>Estimated wait</span><b>24 <em>min</em></b><small>Sample estimate</small></div><div><span>Barbers working</span><b>3</b><small>Today&apos;s preview</small></div></div>
-    <section className="panel customer-queue-panel"><span className="eyebrow">WHAT TO EXPECT</span><h3>Your turn is getting closer.</h3><p>Join remotely with a token, then check your place here while you wait.</p><div className="queue-progress-track"><span /></div><div className="queue-progress-legend"><span>Now serving</span><span>Your place · 4th</span></div><button className="outline-button" onClick={onToken}>Join the queue <ChevronRight size={15} /></button></section>
-    <div className="queue-note"><ShieldCheck size={17} /><span>Preview only: these figures are sample data and do not update in real time.</span></div>
-  </>
+type CustomerQueueStatus = 'waiting' | 'approaching' | 'called' | 'in_service' | 'completed' | 'cancelled'
+
+type CustomerQueueDemo = {
+  token: string
+  customerName: string
+  services: string[]
+  barber: string
+  barberInitials: string
+  chair: string
+  status: CustomerQueueStatus
+  customersAhead: number
+  estimatedWaitMinutes: number | null
+  currentlyServingToken: string
+  createdAt: number
+  updatedAt: number
+}
+
+function createInitialCustomerQueue(): CustomerQueueDemo {
+  const now = Date.now()
+  return { token: '026', customerName: 'Jordan Ellis', services: ['Classic cut'], barber: 'Malik Johnson', barberInitials: 'MJ', chair: 'Chair 01', status: 'waiting', customersAhead: 3, estimatedWaitMinutes: 24, currentlyServingToken: '024', createdAt: now, updatedAt: now }
+}
+
+const queueStatusCopy: Record<CustomerQueueStatus, string> = {
+  waiting: 'Waiting in queue', approaching: 'Almost your turn', called: 'Your turn is now', in_service: 'Service in progress', completed: 'Service complete', cancelled: 'Token cancelled',
+}
+
+function CustomerQueueView({ queue, tokenCreated, onToken, onAdvance }: { queue: CustomerQueueDemo; tokenCreated: boolean; onToken: () => void; onAdvance: () => void }) {
+  const ready = queue.status === 'called'
+  const progress = queue.status === 'waiting' ? 25 : queue.status === 'approaching' ? 60 : queue.status === 'called' || queue.status === 'in_service' ? 88 : 100
+  return <div className="customer-queue-view">
+    <div className="view-intro"><div><span className="eyebrow">QUEUE SNAPSHOT · SAMPLE DATA</span><h2>Live queue</h2><p>Follow your place and see who&apos;s serving.</p></div><button className="primary-button" onClick={onToken}><Plus size={16} /> {!tokenCreated || queue.status === 'cancelled' || queue.status === 'completed' ? 'Get a token' : 'My token'}</button></div>
+    {ready && <div className="get-ready-alert" role="status"><span className="ready-alert-icon"><Bell size={19} /></span><div><strong>GET READY</strong><p>Your barber is ready. Head to {queue.chair} now.</p></div><span className="ready-live-dot" /> </div>}
+    <section className="customer-token-hero panel"><div className="customer-token-main"><div><span className="eyebrow">YOUR TOKEN · {queueStatusCopy[queue.status].toUpperCase()}</span><div className="customer-big-token"><span>#</span>{queue.token}</div><p>{queue.customerName} · {queue.services.join(' + ')}</p></div><div className="customer-token-status"><StatusBadge status={ready ? 'Up next' : queue.status === 'in_service' ? 'In service' : queue.status === 'completed' ? 'Completed' : queue.status === 'cancelled' ? 'Cancelled' : 'Waiting'} /></div></div><div className="customer-token-facts"><div><span>Customers ahead</span><b>{queue.customersAhead}</b></div><div><span>Estimated wait</span><b>{queue.estimatedWaitMinutes === null ? '—' : `${queue.estimatedWaitMinutes} min`}</b></div><div><span>Now serving</span><b>#{queue.currentlyServingToken}</b></div></div><div className="customer-assignment"><span className="avatar gold">{queue.barberInitials}</span><div><small>YOUR BARBER</small><b>{queue.barber}</b></div><span className="assignment-divider" /><div><small>YOUR CHAIR</small><b>{queue.chair}</b></div></div></section>
+    <section className="panel customer-timeline-panel"><div className="panel-heading compact"><div><span className="eyebrow">QUEUE PROGRESS</span><h3>Your visit, step by step</h3></div><span className="queue-position">{queue.status === 'cancelled' ? 'Cancelled' : queue.status === 'completed' ? 'Done' : `${queue.customersAhead + 1} in line`}</span></div><div className="customer-progress-track" aria-label={`Queue progress ${progress}%`}><span style={{ width: `${progress}%` }} /></div><div className="customer-queue-timeline">{[
+      { key: 'confirmed', label: 'Token confirmed', detail: 'You are on the list', done: true },
+      { key: 'waiting', label: 'Waiting in queue', detail: queue.status === 'waiting' ? `${queue.customersAhead} customers ahead` : 'Your place is moving forward', done: ['approaching', 'called', 'in_service', 'completed'].includes(queue.status), current: queue.status === 'waiting' },
+      { key: 'called', label: 'Barber calls your token', detail: queue.status === 'called' ? 'Head to your assigned chair' : 'We’ll show a GET READY alert when called', done: ['in_service', 'completed'].includes(queue.status), current: queue.status === 'called' },
+      { key: 'service', label: 'Service', detail: queue.status === 'completed' ? 'Visit complete' : 'Your barber starts your service', done: queue.status === 'completed', current: queue.status === 'in_service' },
+    ].map((step) => <div className={`customer-timeline-step ${step.done ? 'done' : ''} ${step.current ? 'current' : ''}`} key={step.key}><i>{step.done ? <Check size={12} /> : null}</i><div><b>{step.label}</b><small>{step.detail}</small></div></div>)}</div>
+    </section>
+    <div className="queue-demo-controls"><button className="outline-button" onClick={onAdvance} disabled={['completed', 'cancelled'].includes(queue.status)}>Advance sample queue event <ChevronRight size={15} /></button><span>Demo only · advances on action, not on a countdown.</span></div>
+    <div className="queue-note"><ShieldCheck size={17} /><span>Sample queue snapshot; values change only with demo events. This object is shaped for a future Realtime queue subscription.</span></div>
+  </div>
 }
 
 function HistoryView() {
@@ -107,7 +143,36 @@ function HistoryView() {
   </>
 }
 
-function TokenView({ tokenCreated, booking, onToken, onCancel }: { tokenCreated: boolean; booking: TokenBooking | null; onToken: () => void; onCancel: () => void }) {
+function TokenView({ tokenCreated, booking, queue, onToken, onCancel, onAdvance }: { tokenCreated: boolean; booking: TokenBooking | null; queue: CustomerQueueDemo; onToken: () => void; onCancel: () => void; onAdvance: () => void }) {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 30000)
+    return () => window.clearInterval(interval)
+  }, [])
+  const cancelDeadline = queue.createdAt + 15 * 60 * 1000
+  const cancellationOpen = ['waiting', 'approaching'].includes(queue.status) && now < cancelDeadline
+  const cancelDeadlineLabel = new Date(cancelDeadline).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  const queuePercent = queue.status === 'waiting' ? 25 : queue.status === 'approaching' ? 60 : ['called', 'in_service'].includes(queue.status) ? 88 : 100
+  const badgeStatus = queue.status === 'called' ? 'Up next' : queue.status === 'in_service' ? 'In service' : queue.status === 'completed' ? 'Completed' : queue.status === 'cancelled' ? 'Cancelled' : 'Waiting'
+  return <div className="token-layout customer-token-screen">
+    <div className="view-intro"><div><span className="eyebrow">YOUR PLACE IN THE CHAIR</span><h2>{queue.status === 'cancelled' ? 'Token cancelled' : queue.status === 'completed' ? 'Visit complete' : 'You’re in the queue.'}</h2><p>{queue.status === 'called' ? `Your barber is ready. Head to ${queue.chair}.` : queue.status === 'in_service' ? 'Your service is underway.' : 'Your queue details, updated with each sample event.'}</p></div><StatusBadge status={badgeStatus} /></div>
+    {queue.status === 'called' && <div className="get-ready-alert" role="alert"><span className="ready-alert-icon"><Bell size={19} /></span><div><strong>GET READY</strong><p>Your turn is now. Please head to {queue.chair}.</p></div><span className="ready-live-dot" /></div>}
+    <section className="token-card panel customer-token-hero"><div className="token-card-top"><div><span className="eyebrow">DEMONI AIYO SALON · TODAY</span><p>YOUR TOKEN</p></div><span className="live-pill sample-pill">SAMPLE QUEUE</span></div><div className="customer-big-token customer-big-token-centered"><span>#</span>{queue.token}</div><div className="customer-token-facts"><div><span>Customers ahead</span><b>{queue.customersAhead}</b></div><div><span>Estimated wait</span><b>{queue.estimatedWaitMinutes === null ? '—' : `${queue.estimatedWaitMinutes} min`}</b></div><div><span>Now serving</span><b>#{queue.currentlyServingToken}</b></div></div><div className="customer-assignment"><span className="avatar gold">{queue.barberInitials}</span><div><small>ASSIGNED BARBER</small><b>{queue.barber}</b></div><span className="assignment-divider" /><div><small>ASSIGNED CHAIR</small><b>{queue.chair}</b></div></div>{booking && tokenCreated && <div className="token-application-details"><div><span>Requested services</span><b>{booking.services.join(', ')}</b></div><div><span>Service category</span><b>{booking.category}</b></div><div><span>Estimated price</span><b>${booking.totalPrice}</b></div></div>}
+      <div className="token-progress"><div><span>QUEUE PROGRESS</span><b>{queue.status === 'cancelled' ? 'Cancelled' : queue.status === 'completed' ? 'Complete' : `${queue.customersAhead + 1} in line`}</b></div><div className="progress-track"><i style={{ width: `${queuePercent}%` }} /></div><small>Sample estimate · changes with queue events, not a timer.</small></div>
+    </section>
+    <section className="panel customer-timeline-panel token-screen-timeline"><div className="panel-heading compact"><div><span className="eyebrow">YOUR QUEUE TIMELINE</span><h3>What happens next</h3></div><span className="queue-position">{queueStatusCopy[queue.status]}</span></div><div className="customer-queue-timeline">{[
+      { key: 'confirmed', label: 'Token confirmed', detail: 'You are on the list', done: true },
+      { key: 'waiting', label: 'Waiting in queue', detail: `${queue.customersAhead} customers ahead`, done: ['approaching', 'called', 'in_service', 'completed'].includes(queue.status), current: queue.status === 'waiting' },
+      { key: 'called', label: 'Barber calls your token', detail: queue.status === 'called' ? `Head to ${queue.chair} now` : 'GET READY alert appears here', done: ['in_service', 'completed'].includes(queue.status), current: queue.status === 'called' },
+      { key: 'service', label: 'Service', detail: queue.status === 'completed' ? 'Visit complete' : 'Your barber starts your service', done: queue.status === 'completed', current: queue.status === 'in_service' },
+    ].map((step) => <div className={`customer-timeline-step ${step.done ? 'done' : ''} ${step.current ? 'current' : ''}`} key={step.key}><i>{step.done ? <Check size={12} /> : null}</i><div><b>{step.label}</b><small>{step.detail}</small></div></div>)}</div></section>
+    <section className="customer-cancellation panel"><div><span className="eyebrow">CANCELLATION POLICY</span><p>{cancellationOpen ? `Cancellation is available until ${cancelDeadlineLabel} (the first 15 minutes after joining).` : queue.status === 'cancelled' ? 'This sample token has been cancelled.' : 'The 15-minute cancellation window has closed or your turn has been called.'}</p></div><button className="cancel-button" disabled={!cancellationOpen} onClick={onCancel}>{cancellationOpen ? 'Cancel token' : 'Cancellation unavailable'}</button></section>
+    <div className="queue-demo-controls"><button className="outline-button" onClick={queue.status === 'cancelled' || queue.status === 'completed' ? onToken : onAdvance}>{queue.status === 'cancelled' || queue.status === 'completed' ? 'Join a new queue' : 'Advance sample queue event'} <ChevronRight size={15} /></button><span>Prototype event controls · queue data is structured for a future Supabase Realtime subscription.</span></div>
+    <div className="queue-note"><ShieldCheck size={17} /><span>Wait estimates and queue position are sample snapshots, not live or countdown data.</span></div>
+  </div>
+}
+
+function LegacyTokenView({ tokenCreated, booking, onToken, onCancel }: { tokenCreated: boolean; booking: TokenBooking | null; onToken: () => void; onCancel: () => void }) {
   const requestedServices = booking?.services.join(', ')
   return <div className="token-layout"><div className="view-intro"><div><span className="eyebrow">YOUR PLACE IN THE CHAIR</span><h2>{tokenCreated ? 'You’re in the queue.' : 'My token'}</h2><p>{tokenCreated ? 'Your barber will be ready for you soon.' : 'Your next great cut is just around the corner.'}</p></div>{tokenCreated && <StatusBadge status="Waiting" />}</div><div className="token-card panel"><div className="token-card-top"><div><span className="eyebrow">DEMONI AIYO SALON · TODAY</span><p>YOUR TOKEN</p></div><span className="live-pill sample-pill">SAMPLE QUEUE</span></div><div className="token-number">#<span>{tokenCreated ? '028' : '026'}</span></div><div className="token-meta"><div><span>Estimated wait</span><b>{tokenCreated ? '~ 32 min' : '~ 24 min'}</b></div><div><span>Customers ahead</span><b>{tokenCreated ? '4 guests' : '3 guests'}</b></div><div><span>Service</span><b>{tokenCreated ? requestedServices || 'Signature cut' : 'Classic cut'}</b></div></div>{tokenCreated && booking && <div className="token-application-details"><div><span>Category</span><b>{booking.category}</b></div><div><span>Price estimate</span><b>${booking.totalPrice}</b></div><div><span>Service duration</span><b>~ {booking.durationMinutes} min</b></div><div><span>Barber review</span><b>Pending confirmation</b></div></div>}<div className="token-progress"><div><span>QUEUE PROGRESS</span><b>1 of 5</b></div><div className="progress-track"><i /></div><small>We&apos;ll let you know when you&apos;re up next.</small></div><div className="called-bar"><span className="avatar gold">MJ</span><div><small>YOUR BARBER</small><b>Malik Johnson · Chair 01</b></div><span className="barber-ready"><i /> Available</span></div><div className="timeline"><div className="timeline-item done"><i><Check size={12} /></i><div><b>Token confirmed</b><small>You&apos;re on the list</small></div><time>Now</time></div><div className="timeline-item current"><i /><div><b>Waiting for your turn</b><small>3 customers ahead of you</small></div><time>~24 min</time></div><div className="timeline-item"><i /><div><b>Head to the chair</b><small>We&apos;ll notify you when you&apos;re next</small></div></div><div className="timeline-item"><i /><div><b>Your fresh cut</b><small>Enjoy the craft</small></div></div></div><button className="cancel-button" onClick={onCancel}>Cancel token</button><p className="cancellation-note">Cancellations are unavailable within 15 minutes of your turn.</p></div></div>
 }
@@ -390,21 +455,43 @@ export default function SalonPlatform() {
   const [tokenFlow, setTokenFlow] = useState(false)
   const [tokenCreated, setTokenCreated] = useState(false)
   const [tokenBooking, setTokenBooking] = useState<TokenBooking | null>(null)
+  const [queueDemo, setQueueDemo] = useState<CustomerQueueDemo>(createInitialCustomerQueue)
   const [notice, setNotice] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const navItems = useMemo(() => navigation[role], [role])
   const mobileNavItems: Section[] = role === 'Customer' ? ['Overview', 'Live queue', 'My token', 'Profile'] : role === 'Barber' ? ['Overview', 'Live queue', 'History', 'Profile'] : []
   const switchRole = (next: Role) => { setRole(next); setSection(next === 'Customer' ? 'Overview' : 'Overview'); setSidebarOpen(false) }
-  const createToken = (booking: TokenBooking) => { setTokenBooking(booking); setTokenCreated(true); setTokenFlow(false); setSection('My token'); setNotice('Your token #028 is confirmed. You’re in the queue!'); window.setTimeout(() => setNotice(''), 4500) }
+  const createToken = (booking: TokenBooking) => {
+    const now = Date.now()
+    setQueueDemo({ token: '028', customerName: booking.customerName, services: booking.services, barber: 'Malik Johnson', barberInitials: 'MJ', chair: 'Chair 01', status: 'waiting', customersAhead: 3, estimatedWaitMinutes: 24, currentlyServingToken: '024', createdAt: now, updatedAt: now })
+    setTokenBooking(booking)
+    setTokenCreated(true)
+    setTokenFlow(false)
+    setSection('My token')
+    setNotice('Your token #028 is confirmed. You’re in the queue!')
+    window.setTimeout(() => setNotice(''), 4500)
+  }
+  const advanceQueueDemo = () => setQueueDemo((queue) => {
+    const next: Partial<CustomerQueueDemo> = queue.status === 'waiting'
+      ? { status: 'approaching', customersAhead: 1, estimatedWaitMinutes: 8, currentlyServingToken: '025' }
+      : queue.status === 'approaching'
+        ? { status: 'called', customersAhead: 0, estimatedWaitMinutes: 0, currentlyServingToken: queue.token }
+        : queue.status === 'called'
+          ? { status: 'in_service', customersAhead: 0, estimatedWaitMinutes: 0, currentlyServingToken: queue.token }
+          : queue.status === 'in_service'
+            ? { status: 'completed', customersAhead: 0, estimatedWaitMinutes: null, currentlyServingToken: '027' }
+            : {}
+    return Object.keys(next).length ? { ...queue, ...next, updatedAt: Date.now() } : queue
+  })
   const openQueue = () => setSection('Live queue')
   const renderContent = () => {
-    if (section === 'Live queue') return role === 'Customer' ? <CustomerQueueView onToken={() => setTokenFlow(true)} /> : <QueueView query={query} setQuery={setQuery} onToken={() => setTokenFlow(true)} />
+    if (section === 'Live queue') return role === 'Customer' ? <CustomerQueueView queue={queueDemo} tokenCreated={tokenCreated} onToken={() => tokenCreated ? setSection('My token') : setTokenFlow(true)} onAdvance={advanceQueueDemo} /> : <QueueView query={query} setQuery={setQuery} onToken={() => setTokenFlow(true)} />
     if (section === 'Team') return <TeamView />
     if (section === 'History') return <HistoryView />
     if (section === 'Payments') return <PaymentsView />
     if (section === 'Services') return <ServicesView />
     if (section === 'Settings') return <SettingsView />
-    if (section === 'My token') return <TokenView tokenCreated={tokenCreated} booking={tokenBooking} onToken={() => setTokenFlow(true)} onCancel={() => { setTokenCreated(false); setTokenBooking(null); setNotice('Your token has been cancelled.'); window.setTimeout(() => setNotice(''), 3500) }} />
+    if (section === 'My token') return <TokenView tokenCreated={tokenCreated} booking={tokenBooking} queue={queueDemo} onAdvance={advanceQueueDemo} onToken={() => setTokenFlow(true)} onCancel={() => { setQueueDemo((queue) => ({ ...queue, status: 'cancelled', estimatedWaitMinutes: null, updatedAt: Date.now() })); setNotice('Your sample token has been cancelled.'); window.setTimeout(() => setNotice(''), 3500) }} />
     if (section === 'Profile') return <div className="panel profile-view"><span className="avatar avatar-large rose">{role === 'Customer' ? 'JE' : 'DA'}</span><span className="eyebrow">YOUR ACCOUNT</span><h2>{role === 'Customer' ? 'Jordan Ellis' : role === 'Barber' ? 'Malik Johnson' : 'Demoni Aiyo'}</h2><p>{role} account · Member since 2024</p><button className="outline-button">Edit profile</button></div>
     if (role === 'Customer') return <CustomerOverview onToken={() => setTokenFlow(true)} />
     if (role === 'Barber' && section === 'Overview') return <BarberFlow />

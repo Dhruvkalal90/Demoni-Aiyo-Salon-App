@@ -344,6 +344,45 @@ function TokenFlow({ onClose, onComplete }: { onClose: () => void; onComplete: (
   )
 }
 
+function BarberFlow() {
+  const [status, setStatus] = useState<'FREE' | 'BUSY' | 'NOT AVAILABLE'>('FREE')
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [calledAt, setCalledAt] = useState<number | null>(null)
+  const [now, setNow] = useState(Date.now())
+  const [completed, setCompleted] = useState(false)
+  const [skipped, setSkipped] = useState(false)
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const elapsedSeconds = startedAt ? Math.max(0, Math.floor((now - startedAt) / 1000)) : 0
+  const elapsedLabel = `${String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:${String(elapsedSeconds % 60).padStart(2, '0')}`
+  const noShowReady = calledAt !== null && now - calledAt >= 10 * 60 * 1000
+  const serviceReady = startedAt !== null && elapsedSeconds >= 15 * 60
+  const startService = () => {
+    if (status !== 'FREE' || startedAt) return
+    setStartedAt(Date.now())
+    setStatus('BUSY')
+  }
+  const finishService = () => {
+    if (!serviceReady) return
+    setCompleted(true)
+    setStartedAt(null)
+    setCalledAt(null)
+    setStatus('FREE')
+  }
+  const skipCustomer = () => {
+    if (!noShowReady || !window.confirm('Skip Jordan Ellis for not arriving? This removes the customer from the active queue.')) return
+    setSkipped(true)
+    setCalledAt(null)
+    setStatus('FREE')
+  }
+
+  return <><section className="welcome-banner barber-banner"><div className="welcome-copy"><span className="eyebrow"><span className="live-dot" /> YOUR CHAIR · {status}</span><h2>Ready when you are, Malik.</h2><p>{completed ? 'Jordan Ellis has completed their visit.' : skipped ? 'The called customer was skipped.' : startedAt ? 'You are currently serving Jordan Ellis.' : 'Jordan Ellis is up next with a low taper fade.'}</p><div className="welcome-meta"><span><Scissors size={14} /> Chair 01</span><span className="meta-divider" /><span>{startedAt ? `Elapsed ${elapsedLabel}` : 'Estimated 35 min'}</span></div></div><button className="barber-start" disabled={status !== 'FREE' || !!startedAt || completed || skipped} onClick={startService}><Scissors size={16} /> Start service</button></section><section className="metric-grid"><MetricCard title="Services today" value={completed ? '07' : '06'} note="2 more than yesterday" trend="14%" icon={Scissors} /><MetricCard title="Current status" value={status} note={status === 'FREE' ? 'Available for next client' : status === 'BUSY' ? 'Service in progress' : 'Unavailable for assignments'} icon={Activity} accent /><MetricCard title="Service timer" value={startedAt ? elapsedLabel : '—'} note={startedAt ? 'Minimum service: 15:00' : 'Starts when service begins'} icon={Clock3} /><MetricCard title="Your rating" value="4.9" note="From 128 reviews" icon={Crown} /></section><section className="content-grid"><article className="panel barber-next"><div className="panel-heading"><div><span className="eyebrow">{skipped ? 'CUSTOMER SKIPPED' : completed ? 'SERVICE COMPLETE' : 'UP NEXT · TOKEN #025'}</span><h3>Your next client</h3><p>Review the request before getting started.</p></div><StatusBadge status={startedAt ? 'In service' : completed ? 'Completed' : skipped ? 'Waiting' : 'Up next'} /></div><div className="next-client"><span className="avatar avatar-large gold">JE</span><div><h3>Jordan Ellis</h3><p>Low taper fade · Est. 35 min</p><span className="client-arrival"><Clock3 size={14} /> {calledAt ? `Called ${Math.floor((now - calledAt) / 60000)} min ago` : 'Arriving now'}</span></div></div><div className="client-details"><div><span>Requested services</span><b>Low taper fade · Shape-up</b></div><div><span>Assigned chair</span><b>Chair 01</b></div><div><span>AI assessment</span><b>Mock only · Barber review</b></div></div><div className="client-details"><div><span>Reference photo</span><img src="/hairstyle-reference.png" alt="Customer hairstyle reference: low taper fade with short textured curls" style={{ width: '100%', maxWidth: 180, borderRadius: 7, marginTop: 7 }} /></div><div><span>Request notes</span><b>Keep length on top; clean low taper</b></div><div><span>AI assessment</span><b>Style request captured; feasibility unverified</b></div></div>{startedAt && <p className="field-note" role="status"><Clock3 size={15} /> Service started at {new Date(startedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} · elapsed {elapsedLabel}</p>}<div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}><button className="primary-button" disabled={status !== 'FREE' || !!startedAt || completed || skipped} onClick={startService}>Start service <ChevronRight size={16} /></button>{startedAt && <button className="primary-button" disabled={!serviceReady} onClick={finishService}>Finish service</button>}{!calledAt && !startedAt && !completed && !skipped && <button className="outline-button" onClick={() => setCalledAt(Date.now())}>Call customer</button>}{calledAt && !startedAt && !skipped && <button className="outline-button" disabled={!noShowReady} onClick={skipCustomer}>{noShowReady ? 'Confirm skip customer' : `No-show warning in ${Math.max(0, 10 - Math.floor((now - calledAt) / 60000))} min`}</button>}</div>{startedAt && !serviceReady && <small className="selection-hint">Finish service unlocks after 15 minutes ({Math.max(0, 15 - Math.floor(elapsedSeconds / 60))} min remaining). This client-side timer is prototype-only.</small>}{noShowReady && !skipped && <p className="contact-warning" role="alert"><AlertTriangle size={14} /> Jordan has not arrived after 10 minutes. Confirm skip to advance the queue.</p>}<p className="queue-note"><ShieldCheck size={15} /> Prototype logic only: status, timer, no-show threshold, and queue changes are local UI state. Enforce durations, queue transitions, and authorization on a trusted backend in production.</p></article><aside className="panel team-panel"><div className="panel-heading compact"><div><span className="eyebrow">YOUR AVAILABILITY</span><h3>Chair status</h3></div></div><div className="barber-shift"><div><span>Current chair</span><b>Chair 01</b></div><div><span>Service status</span><b>{status}</b></div></div><div style={{ display: 'grid', gap: 8 }}><button className="outline-button full-width" disabled={!!startedAt} onClick={() => setStatus(status === 'NOT AVAILABLE' ? 'FREE' : 'NOT AVAILABLE')}>{status === 'NOT AVAILABLE' ? 'Set available' : 'Set not available'}</button><button className="outline-button full-width" disabled={!!startedAt} onClick={() => setStatus(status === 'BUSY' ? 'FREE' : 'BUSY')}>{status === 'BUSY' ? 'Set free' : 'Set busy'}</button></div></aside></section></>
+}
+
 export default function SalonPlatform() {
   const [role, setRole] = useState<Role>('Owner')
   const [section, setSection] = useState<Section>('Overview')
@@ -368,6 +407,7 @@ export default function SalonPlatform() {
     if (section === 'My token') return <TokenView tokenCreated={tokenCreated} booking={tokenBooking} onToken={() => setTokenFlow(true)} onCancel={() => { setTokenCreated(false); setTokenBooking(null); setNotice('Your token has been cancelled.'); window.setTimeout(() => setNotice(''), 3500) }} />
     if (section === 'Profile') return <div className="panel profile-view"><span className="avatar avatar-large rose">{role === 'Customer' ? 'JE' : 'DA'}</span><span className="eyebrow">YOUR ACCOUNT</span><h2>{role === 'Customer' ? 'Jordan Ellis' : role === 'Barber' ? 'Malik Johnson' : 'Demoni Aiyo'}</h2><p>{role} account · Member since 2024</p><button className="outline-button">Edit profile</button></div>
     if (role === 'Customer') return <CustomerOverview onToken={() => setTokenFlow(true)} />
+    if (role === 'Barber' && section === 'Overview') return <BarberFlow />
     if (role === 'Barber') return <><section className="welcome-banner barber-banner"><div className="welcome-copy"><span className="eyebrow"><span className="live-dot" /> YOUR CHAIR IS OPEN</span><h2>Ready when you are, Malik.</h2><p>Jordan Ellis is up next with a low taper fade.</p><div className="welcome-meta"><span><Scissors size={14} /> Chair 01</span><span className="meta-divider" /><span>Estimated 35 min</span></div></div><button className="barber-start" onClick={() => setNotice('Service started · Finish is available after 15 minutes.')}><Scissors size={16} /> Start service</button></section><section className="metric-grid"><MetricCard title="Services today" value="06" note="2 more than yesterday" trend="14%" icon={Scissors} /><MetricCard title="Current status" value="FREE" note="Available for next client" icon={Activity} accent /><MetricCard title="Clients served" value="06" note="Your daily goal is 8" icon={Users} /><MetricCard title="Your rating" value="4.9" note="From 128 reviews" icon={Crown} /></section><section className="content-grid"><article className="panel barber-next"><div className="panel-heading"><div><span className="eyebrow">UP NEXT · TOKEN #025</span><h3>Your next client</h3><p>Give them a warm welcome and a fresh start.</p></div><StatusBadge status="Up next" /></div><div className="next-client"><span className="avatar avatar-large gold">JE</span><div><h3>Jordan Ellis</h3><p>Low taper fade · Est. 35 min</p><span className="client-arrival"><Clock3 size={14} /> Arriving now</span></div></div><div className="client-details"><div><span>Requested service</span><b>Low taper fade</b></div><div><span>Reference photo</span><b>Not provided</b></div><div><span>AI style check</span><b>Not requested</b></div></div><button className="primary-button" onClick={() => setNotice('Service started · Finish is available after 15 minutes.')}>Start service <ChevronRight size={16} /></button></article><aside className="panel team-panel"><div className="panel-heading compact"><div><span className="eyebrow">YOUR SHIFT</span><h3>At a glance</h3></div></div><div className="barber-shift"><div><span>Shift</span><b>9:00 AM – 6:00 PM</b></div><div><span>Chair</span><b>Chair 01</b></div><div><span>Next break</span><b>2:30 PM · 15 min</b></div><div><span>Queue behind you</span><b>2 clients</b></div></div><button className="outline-button full-width" onClick={() => setNotice('Status changed to unavailable.')}>Set unavailable</button></aside></section></>
     return <OwnerOverview onQueue={openQueue} />
   }

@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { Activity, ArrowDownRight, ArrowUpRight, Bell, CalendarDays, Check, ChevronDown, ChevronRight, Clock3, Crown, Scissors, CircleHelp, CreditCard, LayoutDashboard, ListChecks, Menu, MoreHorizontal, Plus, Search, Settings2, ShieldCheck, Sparkles, UserRound, Users, Wallet, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { Activity, AlertTriangle, ArrowDownRight, ArrowUpRight, Bell, CalendarDays, Camera, Check, ChevronDown, ChevronRight, Clock3, Crown, Scissors, CircleHelp, CreditCard, LayoutDashboard, ListChecks, Menu, MoreHorizontal, Plus, RotateCcw, Search, Settings2, ShieldCheck, Sparkles, Trash2, UserRound, Users, Wallet, X } from 'lucide-react'
 
 type Role = 'Owner' | 'Barber' | 'Customer'
 type Section = 'Overview' | 'Live queue' | 'Team' | 'History' | 'Payments' | 'Services' | 'Settings' | 'My token' | 'Profile'
@@ -107,22 +107,241 @@ function HistoryView() {
   </>
 }
 
-function TokenView({ tokenCreated, onToken, onCancel }: { tokenCreated: boolean; onToken: () => void; onCancel: () => void }) {
-  return <div className="token-layout"><div className="view-intro"><div><span className="eyebrow">YOUR PLACE IN THE CHAIR</span><h2>{tokenCreated ? 'You’re in the queue.' : 'My token'}</h2><p>{tokenCreated ? 'Your barber will be ready for you soon.' : 'Your next great cut is just around the corner.'}</p></div>{tokenCreated && <StatusBadge status="Waiting" />}</div><div className="token-card panel"><div className="token-card-top"><div><span className="eyebrow">DEMONI AIYO SALON · TODAY</span><p>YOUR TOKEN</p></div><span className="live-pill sample-pill">SAMPLE QUEUE</span></div><div className="token-number">#<span>{tokenCreated ? '028' : '026'}</span></div><div className="token-meta"><div><span>Estimated wait</span><b>{tokenCreated ? '~ 32 min' : '~ 24 min'}</b></div><div><span>Customers ahead</span><b>{tokenCreated ? '4 guests' : '3 guests'}</b></div><div><span>Service</span><b>{tokenCreated ? 'Signature cut' : 'Classic cut'}</b></div></div><div className="token-progress"><div><span>QUEUE PROGRESS</span><b>1 of 5</b></div><div className="progress-track"><i /></div><small>We&apos;ll let you know when you&apos;re up next.</small></div><div className="called-bar"><span className="avatar gold">MJ</span><div><small>YOUR BARBER</small><b>Malik Johnson · Chair 01</b></div><span className="barber-ready"><i /> Available</span></div><div className="timeline"><div className="timeline-item done"><i><Check size={12} /></i><div><b>Token confirmed</b><small>You&apos;re on the list</small></div><time>Now</time></div><div className="timeline-item current"><i /><div><b>Waiting for your turn</b><small>3 customers ahead of you</small></div><time>~24 min</time></div><div className="timeline-item"><i /><div><b>Head to the chair</b><small>We&apos;ll notify you when you&apos;re next</small></div></div><div className="timeline-item"><i /><div><b>Your fresh cut</b><small>Enjoy the craft</small></div></div></div><button className="cancel-button" onClick={onCancel}>Cancel token</button><p className="cancellation-note">Cancellations are unavailable within 15 minutes of your turn.</p></div></div>
+function TokenView({ tokenCreated, booking, onToken, onCancel }: { tokenCreated: boolean; booking: TokenBooking | null; onToken: () => void; onCancel: () => void }) {
+  const requestedServices = booking?.services.join(', ')
+  return <div className="token-layout"><div className="view-intro"><div><span className="eyebrow">YOUR PLACE IN THE CHAIR</span><h2>{tokenCreated ? 'You’re in the queue.' : 'My token'}</h2><p>{tokenCreated ? 'Your barber will be ready for you soon.' : 'Your next great cut is just around the corner.'}</p></div>{tokenCreated && <StatusBadge status="Waiting" />}</div><div className="token-card panel"><div className="token-card-top"><div><span className="eyebrow">DEMONI AIYO SALON · TODAY</span><p>YOUR TOKEN</p></div><span className="live-pill sample-pill">SAMPLE QUEUE</span></div><div className="token-number">#<span>{tokenCreated ? '028' : '026'}</span></div><div className="token-meta"><div><span>Estimated wait</span><b>{tokenCreated ? '~ 32 min' : '~ 24 min'}</b></div><div><span>Customers ahead</span><b>{tokenCreated ? '4 guests' : '3 guests'}</b></div><div><span>Service</span><b>{tokenCreated ? requestedServices || 'Signature cut' : 'Classic cut'}</b></div></div>{tokenCreated && booking && <div className="token-application-details"><div><span>Category</span><b>{booking.category}</b></div><div><span>Price estimate</span><b>${booking.totalPrice}</b></div><div><span>Service duration</span><b>~ {booking.durationMinutes} min</b></div><div><span>Barber review</span><b>Pending confirmation</b></div></div>}<div className="token-progress"><div><span>QUEUE PROGRESS</span><b>1 of 5</b></div><div className="progress-track"><i /></div><small>We&apos;ll let you know when you&apos;re up next.</small></div><div className="called-bar"><span className="avatar gold">MJ</span><div><small>YOUR BARBER</small><b>Malik Johnson · Chair 01</b></div><span className="barber-ready"><i /> Available</span></div><div className="timeline"><div className="timeline-item done"><i><Check size={12} /></i><div><b>Token confirmed</b><small>You&apos;re on the list</small></div><time>Now</time></div><div className="timeline-item current"><i /><div><b>Waiting for your turn</b><small>3 customers ahead of you</small></div><time>~24 min</time></div><div className="timeline-item"><i /><div><b>Head to the chair</b><small>We&apos;ll notify you when you&apos;re next</small></div></div><div className="timeline-item"><i /><div><b>Your fresh cut</b><small>Enjoy the craft</small></div></div></div><button className="cancel-button" onClick={onCancel}>Cancel token</button><p className="cancellation-note">Cancellations are unavailable within 15 minutes of your turn.</p></div></div>
 }
 
-function TokenFlow({ onClose, onComplete }: { onClose: () => void; onComplete: () => void }) {
+type TokenBooking = {
+  category: string
+  services: string[]
+  customerName: string
+  phone: string
+  totalPrice: number
+  durationMinutes: number
+  hasReferencePhoto: boolean
+}
+
+type TokenCategoryId = 'haircut' | 'beard' | 'texture' | 'combo'
+
+type TokenServiceOption = {
+  id: string
+  category: TokenCategoryId
+  name: string
+  description: string
+  price: number
+  minutes: number
+}
+
+const tokenCategories = [
+  { id: 'haircut', name: 'Cuts & fades', description: 'Fresh cuts and clean edges', icon: Scissors },
+  { id: 'beard', name: 'Beard & grooming', description: 'Shape, detail, and finish', icon: ShieldCheck },
+  { id: 'texture', name: 'Texture & care', description: 'Style and care for your texture', icon: Sparkles },
+  { id: 'combo', name: 'Combo services', description: 'A complete, coordinated look', icon: Plus },
+] as const
+
+const tokenServiceOptions: TokenServiceOption[] = [
+  { id: 'signature-cut', category: 'haircut', name: 'Signature haircut', description: 'Classic, tailored to you', price: 38, minutes: 35 },
+  { id: 'low-taper', category: 'haircut', name: 'Low taper fade', description: 'Clean edges, easy living', price: 42, minutes: 40 },
+  { id: 'classic-cut', category: 'haircut', name: 'Classic cut', description: 'A timeless shape and finish', price: 32, minutes: 30 },
+  { id: 'shape-up', category: 'haircut', name: 'Shape-up detail', description: 'Add a crisp line-up', price: 12, minutes: 10 },
+  { id: 'beard-shaping', category: 'beard', name: 'Beard styling', description: 'Shape and define your beard', price: 24, minutes: 20 },
+  { id: 'hot-towel', category: 'beard', name: 'Hot towel beard trim', description: 'A close trim with a warm finish', price: 32, minutes: 25 },
+  { id: 'line-up', category: 'beard', name: 'Clean line-up', description: 'A quick, precise outline', price: 18, minutes: 15 },
+  { id: 'texture-style', category: 'texture', name: 'Texture & style', description: 'Bring your natural texture to life', price: 48, minutes: 45 },
+  { id: 'curl-definition', category: 'texture', name: 'Curl definition', description: 'Define and shape your curls', price: 30, minutes: 25 },
+  { id: 'deep-condition', category: 'texture', name: 'Deep conditioning', description: 'A restorative care treatment', price: 40, minutes: 30 },
+  { id: 'fade-beard', category: 'combo', name: 'Fade + beard', description: 'A coordinated cut and beard finish', price: 62, minutes: 55 },
+  { id: 'cut-texture', category: 'combo', name: 'Cut + texture finish', description: 'A tailored cut with styled texture', price: 68, minutes: 70 },
+]
+
+const tokenStepTitles = ['Choose a service category.', 'Pick your service options.', 'Review your estimate.', 'Preview your hairstyle check.', 'Confirm your request.']
+const tokenStepDescriptions = [
+  'Start with the kind of service you have in mind. You can change this before applying.',
+  'Choose one or more services or details. Your estimate updates as you select.',
+  'Review your estimated price and time, then add your contact details.',
+  'Add a current hairstyle photo for a clearly labelled mock assessment. This demo does not run AI.',
+  'Check the details before applying. Your barber will confirm feasibility and final pricing in person.',
+]
+
+function TokenFlow({ onClose, onComplete }: { onClose: () => void; onComplete: (booking: TokenBooking) => void }) {
   const [step, setStep] = useState(1)
-  const [service, setService] = useState('Signature haircut')
-  const [styles, setStyles] = useState<string[]>(['Low fade'])
+  const [categoryId, setCategoryId] = useState<TokenCategoryId>('haircut')
+  const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([])
   const [name, setName] = useState('Jordan Ellis')
   const [phone, setPhone] = useState('(415) 555-0142')
   const [referencePhoto, setReferencePhoto] = useState<string | null>(null)
-  const services = ['Signature haircut', 'Low taper fade', 'Fade + beard', 'Texture & style']
-  const styleOptions = ['Low fade', 'Mid fade', 'High fade', 'Taper fade', 'Buzz cut', 'Classic cut', 'Beard styling']
-  const servicePrice = service === 'Fade + beard' ? 62 : service === 'Low taper fade' ? 42 : service === 'Texture & style' ? 48 : 38
-  const toggleStyle = (option: string) => setStyles((current) => current.includes(option) ? current.filter((item) => item !== option) : [...current, option])
-  return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="token-modal" role="dialog" aria-modal="true" aria-labelledby="token-flow-title"><button className="modal-close" onClick={onClose} aria-label="Close"><X size={18} /></button><div className="modal-brand"><img src="/salon-crest.png" alt="" /><span>DEMONI AIYO <b>SALON</b></span></div><div className="step-indicator"><span className={step >= 1 ? 'active' : ''}>01</span><i /><span className={step >= 2 ? 'active' : ''}>02</span><i /><span className={step >= 3 ? 'active' : ''}>03</span><i /><span className={step >= 4 ? 'active' : ''}>04</span><i /><span className={step >= 5 ? 'active' : ''}>05</span></div><span className="eyebrow">STEP {step} OF 5</span><h2 id="token-flow-title">{step === 1 ? 'Choose your service.' : step === 2 ? 'Make it your own.' : step === 3 ? 'A few details.' : step === 4 ? 'Have a style in mind?' : 'You’re almost there.'}</h2><p className="modal-description">{step === 1 ? 'Pick the service that feels right. Your barber will fine-tune the details together.' : step === 2 ? 'Choose as many style details as you like.' : step === 3 ? 'We’ll use these to confirm your place and keep you in the loop.' : step === 4 ? 'Add an inspiration photo for an advisory, sample AI-style check—or skip it.' : 'Review your request before joining the sample queue.'}</p>{step === 1 && <div className="service-options">{services.map((option, index) => <button key={option} className={`service-option ${service === option ? 'selected' : ''}`} onClick={() => setService(option)}><span className="option-icon"><Scissors size={17} /></span><span><b>{option}</b><small>{index === 0 ? 'Classic, tailored to you' : index === 1 ? 'Clean edges, easy living' : index === 2 ? 'The full fresh treatment' : 'Bring your texture to life'}</small></span><strong>{['$38', '$42', '$62', '$48'][index]}</strong>{service === option && <Check size={17} className="option-check" />}</button>)}</div>}{step === 2 && <div className="style-option-grid">{styleOptions.map((option) => <button type="button" key={option} className={`style-option ${styles.includes(option) ? 'selected' : ''}`} aria-pressed={styles.includes(option)} onClick={() => toggleStyle(option)}>{option}{styles.includes(option) && <Check size={14} />}</button>)}</div>}{step === 3 && <div className="customer-fields"><label>Your name<input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" /></label><label>Mobile number<input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} autoComplete="tel" /></label><div className="field-note"><ShieldCheck size={15} /> We&apos;ll only use this to update you about your token.</div></div>}{step === 4 && <div className="ai-check-panel"><label className="reference-upload">{referencePhoto ? <><img className="reference-preview" src={referencePhoto} alt="Your hairstyle reference" /><span>Choose another photo</span></> : <><span className="option-icon"><Sparkles size={18} /></span><b>Add a reference photo</b><small>Take a photo or choose one from your device</small></>}<input type="file" accept="image/*" capture="environment" onChange={(event) => { const file = event.target.files?.[0]; if (file) setReferencePhoto(URL.createObjectURL(file)) }} /></label>{referencePhoto && <button className="back-button remove-photo" onClick={() => setReferencePhoto(null)}>Remove photo</button>}<div className="ai-assessment"><span className="eyebrow"><Sparkles size={13} /> SAMPLE AI-STYLE CHECK</span><b>{referencePhoto ? 'Reference photo ready' : 'No photo needed'}</b><p>{referencePhoto ? 'Suggested direction: keep your natural texture and ask your barber for a shape that complements it.' : 'You can continue without a photo and discuss your style directly with your barber.'}</p><small>This is a mock preview, not an actual AI analysis. Your barber confirms final feasibility.</small></div></div>}{step === 5 && <div className="booking-summary"><div><span>Selected service</span><b>{service}</b></div><div><span>Style details</span><b>{styles.length ? styles.join(', ') : 'To discuss with barber'}</b></div><div><span>Customer</span><b>{name || 'Add your name'}</b></div><div><span>Estimated wait</span><b>~ 24 minutes · 3 ahead</b></div><div><span>Reference photo</span><b>{referencePhoto ? 'Attached · mock check only' : 'Not added'}</b></div><div className="summary-total"><span>Estimated total</span><b>${servicePrice}</b></div><p><Sparkles size={14} /> Estimate only. Your barber confirms the final service and price.</p></div>}<div className="modal-actions">{step > 1 && <button className="back-button" onClick={() => setStep(step - 1)}>Back</button>}<button className="primary-button" onClick={() => step < 5 ? setStep(step + 1) : onComplete()}>{step === 5 ? 'Apply for token' : step === 4 ? 'Continue to review' : 'Continue'} <ChevronRight size={16} /></button></div><p className="modal-footnote">Preview flow only. Queue details use sample data.</p></section></div>
+  const [photoWarning, setPhotoWarning] = useState('')
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const category = tokenCategories.find((item) => item.id === categoryId) ?? tokenCategories[0]
+  const availableOptions = tokenServiceOptions.filter((option) => option.category === categoryId)
+  const selectedOptions = tokenServiceOptions.filter((option) => selectedOptionIds.includes(option.id))
+  const totalPrice = selectedOptions.reduce((sum, option) => sum + option.price, 0)
+  const durationMinutes = selectedOptions.reduce((sum, option) => sum + option.minutes, 0)
+  const phoneDigits = phone.replace(/\D/g, '')
+  const contactIsValid = name.trim().length > 0 && phoneDigits.length >= 10
+  const canContinue = step !== 2 || selectedOptions.length > 0
+  const canReview = step !== 3 || contactIsValid
+
+  useEffect(() => {
+    if (!referencePhoto) return
+    return () => URL.revokeObjectURL(referencePhoto)
+  }, [referencePhoto])
+
+  const toggleOption = (optionId: string) => {
+    setSelectedOptionIds((current) => current.includes(optionId) ? current.filter((id) => id !== optionId) : [...current, optionId])
+  }
+
+  const chooseCategory = (nextCategory: TokenCategoryId) => {
+    setCategoryId(nextCategory)
+    setSelectedOptionIds([])
+  }
+
+  const handlePhoto = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0]
+    event.currentTarget.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setPhotoWarning('Choose an image file to preview your hairstyle reference.')
+      return
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setPhotoWarning('That image is larger than 10 MB. Choose a smaller photo.')
+      return
+    }
+    setPhotoWarning('')
+    setReferencePhoto(URL.createObjectURL(file))
+  }
+
+  const applyForToken = () => {
+    onComplete({
+      category: category.name,
+      services: selectedOptions.map((option) => option.name),
+      customerName: name.trim(),
+      phone: phone.trim(),
+      totalPrice,
+      durationMinutes,
+      hasReferencePhoto: Boolean(referencePhoto),
+    })
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section className="token-modal" role="dialog" aria-modal="true" aria-labelledby="token-flow-title">
+        <button className="modal-close" type="button" onClick={onClose} aria-label="Close token application"><X size={18} /></button>
+        <div className="modal-brand"><img src="/salon-crest.png" alt="" /><span>DEMONI AIYO <b>SALON</b></span></div>
+        <div className="step-indicator" role="list" aria-label={`Application progress: step ${step} of 5`}>
+          {tokenStepTitles.map((title, index) => (
+            <span key={title} role="listitem" className={step >= index + 1 ? 'active' : ''} aria-current={step === index + 1 ? 'step' : undefined} aria-label={`Step ${index + 1}: ${title}`} title={title}>{String(index + 1).padStart(2, '0')}</span>
+          )).flatMap((indicator, index) => index < tokenStepTitles.length - 1 ? [indicator, <i key={`step-line-${index}`} aria-hidden="true" />] : [indicator])}
+        </div>
+        <span className="eyebrow">STEP {step} OF 5 · {tokenStepTitles[step - 1].replace(/[.]/g, '')}</span>
+        <h2 id="token-flow-title">{tokenStepTitles[step - 1]}</h2>
+        <p className="modal-description">{tokenStepDescriptions[step - 1]}</p>
+
+        {step === 1 && (
+          <div className="service-category-grid" role="group" aria-label="Service categories">
+            {tokenCategories.map(({ id, name: label, description, icon: Icon }) => (
+              <button key={id} type="button" className={`service-category ${categoryId === id ? 'selected' : ''}`} aria-pressed={categoryId === id} onClick={() => chooseCategory(id)}>
+                <span className="option-icon"><Icon size={17} /></span>
+                <span className="service-category-copy"><b>{label}</b><small>{description}</small></span>
+                {categoryId === id && <Check size={16} className="option-check" />}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="service-selection">
+            <div className="selection-heading"><span>{category.name}</span><small>Choose any that apply</small></div>
+            <div className="selection-live-summary" aria-live="polite"><span>Current estimate</span><b>${totalPrice} <i>·</i> {durationMinutes} min</b></div>
+            <div className="service-option-list">
+              {availableOptions.map((option) => {
+                const isSelected = selectedOptionIds.includes(option.id)
+                return (
+                  <button key={option.id} type="button" className={`service-option ${isSelected ? 'selected' : ''}`} aria-pressed={isSelected} onClick={() => toggleOption(option.id)}>
+                    <span className="option-icon"><Scissors size={16} /></span>
+                    <span className="service-option-copy"><b>{option.name}</b><small>{option.description}</small><small>{option.minutes} min</small></span>
+                    <strong>${option.price}</strong>
+                    {isSelected && <Check size={16} className="option-check" />}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="selection-hint">You can select multiple options. Each adds to the estimate.</p>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="estimate-step">
+            <div className="booking-summary live-booking-summary">
+              <div><span>Category</span><b>{category.name}</b></div>
+              <div><span>Selected services</span><b>{selectedOptions.map((option) => option.name).join(', ')}</b></div>
+              <div><span>Estimated service duration</span><b>~ {durationMinutes} min</b></div>
+              <div className="summary-total"><span>Estimated price</span><b>${totalPrice}</b></div>
+              <p><Clock3 size={14} /> Duration and price are estimates; your barber confirms both before service.</p>
+            </div>
+            <div className="customer-fields">
+              <label>Your name<input value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" /></label>
+              <label>Mobile number<input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} autoComplete="tel" inputMode="tel" aria-describedby="contact-hint" /></label>
+              {!contactIsValid && <small className="contact-warning" id="contact-hint">Enter your name and a valid phone number to continue.</small>}
+              {contactIsValid && <div className="field-note"><ShieldCheck size={15} /> We&apos;ll only use this to update you about your token.</div>}
+            </div>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="ai-check-panel">
+            <input ref={photoInputRef} className="visually-hidden-input" type="file" accept="image/*" capture="environment" aria-label="Choose or capture a hairstyle reference photo" onChange={handlePhoto} />
+            {referencePhoto ? (
+              <div className="photo-preview-card">
+                <img className="reference-preview" src={referencePhoto} alt="Hairstyle reference photo preview" />
+                <div className="photo-preview-copy"><b>Reference photo added</b><small>Preview only. It is not sent to a server.</small>
+                  <div className="photo-actions"><button type="button" className="back-button" onClick={() => photoInputRef.current?.click()}><RotateCcw size={14} /> Retake</button><button type="button" className="back-button remove-photo" onClick={() => setReferencePhoto(null)}><Trash2 size={14} /> Remove</button></div>
+                </div>
+              </div>
+            ) : (
+              <button type="button" className="photo-dropzone" onClick={() => photoInputRef.current?.click()}><span className="option-icon"><Camera size={19} /></span><b>Add a hairstyle photo</b><small>Take a photo or choose one from your device</small><span className="photo-cta">Choose photo</span></button>
+            )}
+            {photoWarning && <p className="photo-warning" role="alert"><AlertTriangle size={15} /> {photoWarning}</p>}
+            <div className="ai-assessment" aria-labelledby="mock-assessment-title">
+              <span className="eyebrow"><Sparkles size={13} /> MOCK ASSESSMENT · UI ONLY</span>
+              <h3 id="mock-assessment-title">Hairstyle assessment</h3>
+              <p>No AI model is connected. This screen is a mock interface and does not analyze your photo.</p>
+              <div className="assessment-grid">
+                <div><span>Style preferences</span><b>{selectedOptions.map((option) => option.name).join(', ')}</b><small>Selected by you · not a recommendation</small></div>
+                <div><span>Feasibility status</span><b className="feasibility-unverified">Unverified</b><small>Barber review required</small></div>
+                <div className="assessment-confirmation"><span>Barber confirmation</span><b>Pending</b><small>Your barber will confirm the style in person</small></div>
+              </div>
+              <div className="assessment-warning" role="note"><AlertTriangle size={15} /><span>Warning: this mock assessment is not professional advice. Final feasibility, service time, and price must be confirmed by your barber.</span></div>
+            </div>
+          </div>
+        )}
+
+        {step === 5 && (
+          <div className="confirmation-step">
+            <div className="booking-summary">
+              <div><span>Service category</span><b>{category.name}</b></div>
+              <div><span>Service options</span><b>{selectedOptions.map((option) => option.name).join(', ')}</b></div>
+              <div><span>Customer</span><b>{name.trim()}</b></div>
+              <div><span>Mobile</span><b>{phone.trim()}</b></div>
+              <div><span>Reference photo</span><b>{referencePhoto ? 'Added · preview only' : 'Not added'}</b></div>
+              <div><span>Estimated duration</span><b>~ {durationMinutes} min</b></div>
+              <div className="summary-total"><span>Estimated total</span><b>${totalPrice}</b></div>
+            </div>
+            <div className="confirmation-note"><ShieldCheck size={16} /><span>Barber confirmation is still required. Your barber will review the request and confirm feasibility, time, and final price.</span></div>
+            <div className="mock-disclaimer"><Sparkles size={14} /><span>AI assessment is a mock UI only. No AI analysis was performed.</span></div>
+          </div>
+        )}
+
+        <div className="modal-actions">
+          {step > 1 && <button type="button" className="back-button" onClick={() => setStep(step - 1)}>Back</button>}
+          <button type="button" className="primary-button" disabled={!canContinue || !canReview} onClick={() => step === 5 ? applyForToken() : setStep(step + 1)}>{step === 5 ? 'Apply for token' : step === 4 ? 'Continue to review' : 'Continue'} <ChevronRight size={16} /></button>
+        </div>
+        <p className="modal-footnote">Preview flow only. Queue details use sample data.</p>
+      </section>
+    </div>
+  )
 }
 
 export default function SalonPlatform() {
@@ -131,12 +350,13 @@ export default function SalonPlatform() {
   const [query, setQuery] = useState('')
   const [tokenFlow, setTokenFlow] = useState(false)
   const [tokenCreated, setTokenCreated] = useState(false)
+  const [tokenBooking, setTokenBooking] = useState<TokenBooking | null>(null)
   const [notice, setNotice] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const navItems = useMemo(() => navigation[role], [role])
   const mobileNavItems: Section[] = role === 'Customer' ? ['Overview', 'Live queue', 'My token', 'Profile'] : role === 'Barber' ? ['Overview', 'Live queue', 'History', 'Profile'] : []
   const switchRole = (next: Role) => { setRole(next); setSection(next === 'Customer' ? 'Overview' : 'Overview'); setSidebarOpen(false) }
-  const createToken = () => { setTokenCreated(true); setTokenFlow(false); setSection('My token'); setNotice('Your token #028 is confirmed. You’re in the queue!'); window.setTimeout(() => setNotice(''), 4500) }
+  const createToken = (booking: TokenBooking) => { setTokenBooking(booking); setTokenCreated(true); setTokenFlow(false); setSection('My token'); setNotice('Your token #028 is confirmed. You’re in the queue!'); window.setTimeout(() => setNotice(''), 4500) }
   const openQueue = () => setSection('Live queue')
   const renderContent = () => {
     if (section === 'Live queue') return role === 'Customer' ? <CustomerQueueView onToken={() => setTokenFlow(true)} /> : <QueueView query={query} setQuery={setQuery} onToken={() => setTokenFlow(true)} />
@@ -145,7 +365,7 @@ export default function SalonPlatform() {
     if (section === 'Payments') return <PaymentsView />
     if (section === 'Services') return <ServicesView />
     if (section === 'Settings') return <SettingsView />
-    if (section === 'My token') return <TokenView tokenCreated={tokenCreated} onToken={() => setTokenFlow(true)} onCancel={() => { setTokenCreated(false); setNotice('Your token has been cancelled.'); window.setTimeout(() => setNotice(''), 3500) }} />
+    if (section === 'My token') return <TokenView tokenCreated={tokenCreated} booking={tokenBooking} onToken={() => setTokenFlow(true)} onCancel={() => { setTokenCreated(false); setTokenBooking(null); setNotice('Your token has been cancelled.'); window.setTimeout(() => setNotice(''), 3500) }} />
     if (section === 'Profile') return <div className="panel profile-view"><span className="avatar avatar-large rose">{role === 'Customer' ? 'JE' : 'DA'}</span><span className="eyebrow">YOUR ACCOUNT</span><h2>{role === 'Customer' ? 'Jordan Ellis' : role === 'Barber' ? 'Malik Johnson' : 'Demoni Aiyo'}</h2><p>{role} account · Member since 2024</p><button className="outline-button">Edit profile</button></div>
     if (role === 'Customer') return <CustomerOverview onToken={() => setTokenFlow(true)} />
     if (role === 'Barber') return <><section className="welcome-banner barber-banner"><div className="welcome-copy"><span className="eyebrow"><span className="live-dot" /> YOUR CHAIR IS OPEN</span><h2>Ready when you are, Malik.</h2><p>Jordan Ellis is up next with a low taper fade.</p><div className="welcome-meta"><span><Scissors size={14} /> Chair 01</span><span className="meta-divider" /><span>Estimated 35 min</span></div></div><button className="barber-start" onClick={() => setNotice('Service started · Finish is available after 15 minutes.')}><Scissors size={16} /> Start service</button></section><section className="metric-grid"><MetricCard title="Services today" value="06" note="2 more than yesterday" trend="14%" icon={Scissors} /><MetricCard title="Current status" value="FREE" note="Available for next client" icon={Activity} accent /><MetricCard title="Clients served" value="06" note="Your daily goal is 8" icon={Users} /><MetricCard title="Your rating" value="4.9" note="From 128 reviews" icon={Crown} /></section><section className="content-grid"><article className="panel barber-next"><div className="panel-heading"><div><span className="eyebrow">UP NEXT · TOKEN #025</span><h3>Your next client</h3><p>Give them a warm welcome and a fresh start.</p></div><StatusBadge status="Up next" /></div><div className="next-client"><span className="avatar avatar-large gold">JE</span><div><h3>Jordan Ellis</h3><p>Low taper fade · Est. 35 min</p><span className="client-arrival"><Clock3 size={14} /> Arriving now</span></div></div><div className="client-details"><div><span>Requested service</span><b>Low taper fade</b></div><div><span>Reference photo</span><b>Not provided</b></div><div><span>AI style check</span><b>Not requested</b></div></div><button className="primary-button" onClick={() => setNotice('Service started · Finish is available after 15 minutes.')}>Start service <ChevronRight size={16} /></button></article><aside className="panel team-panel"><div className="panel-heading compact"><div><span className="eyebrow">YOUR SHIFT</span><h3>At a glance</h3></div></div><div className="barber-shift"><div><span>Shift</span><b>9:00 AM – 6:00 PM</b></div><div><span>Chair</span><b>Chair 01</b></div><div><span>Next break</span><b>2:30 PM · 15 min</b></div><div><span>Queue behind you</span><b>2 clients</b></div></div><button className="outline-button full-width" onClick={() => setNotice('Status changed to unavailable.')}>Set unavailable</button></aside></section></>
